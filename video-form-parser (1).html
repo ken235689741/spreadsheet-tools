@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>影片表單解析器</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface2: #0f3460;
+    --accent: #e94560;
+    --accent-hover: #ff6b81;
+    --text: #eee;
+    --text-muted: #a0a0b8;
+    --border: #2a2a4a;
+    --success: #2ed573;
+    --row-hover: rgba(233, 69, 96, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, var(--accent), #ff9a76);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+  }
+
+  .input-section {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .input-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 200px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 0.9rem;
+    font-family: 'Consolas', 'Microsoft JhengHei', monospace;
+    resize: vertical;
+    line-height: 1.6;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--border); }
+
+  .btn-success {
+    background: var(--success);
+    color: #1a1a2e;
+  }
+  .btn-success:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  .output-section {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    display: none;
+  }
+
+  .output-section.visible { display: block; }
+
+  .output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .output-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .record-count {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  th {
+    background: var(--surface2);
+    padding: 12px 14px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+
+  td {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:hover td { background: var(--row-hover); }
+
+  td.url-cell {
+    max-width: 300px;
+    word-break: break-all;
+  }
+
+  td.url-cell a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  td.url-cell a:hover { text-decoration: underline; }
+
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--success);
+    color: #1a1a2e;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 999;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .error-box {
+    background: rgba(233, 69, 96, 0.15);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 0.88rem;
+    display: none;
+  }
+
+  .error-box.visible { display: block; }
+
+  .help-toggle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 10px;
+    display: inline-block;
+  }
+
+  .help-content {
+    display: none;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: var(--text-muted);
+  }
+
+  .help-content.visible { display: block; }
+
+  .help-content code {
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-label { background: rgba(46,213,115,0.2); color: var(--success); }
+  .badge-smart { background: rgba(255,154,118,0.2); color: #ff9a76; }
+  .badge-infer { background: rgba(116,185,255,0.2); color: #74b9ff; }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 1rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .delete-btn:hover { color: var(--accent); background: rgba(233,69,96,0.15); }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    h1 { font-size: 1.4rem; }
+    textarea { min-height: 150px; }
+    .btn-row { flex-direction: column; }
+    button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>影片表單解析器</h1>
+  <p class="subtitle">貼上影片資訊，自動解析成表格，一鍵複製到 Google 試算表</p>
+
+  <div class="input-section">
+    <label for="inputArea">貼上影片資訊（支援多筆，以空行分隔）</label>
+    <textarea id="inputArea" placeholder="範例 1（標準格式）：
+發布平台：Youtube Shorts
+影片標題：九劍無槍VS唐刀無槍｜無我對局91【燕雲十六聲】
+影片網址：https://www.youtube.com/shorts/_qpQzbrgzPs
+發布日期：2026/4/4
+
+範例 2（不同標籤也能辨識）：
+直播平台：Twitch
+直播標題：【燕雲十六聲】今天來打PVP
+直播網址：https://www.twitch.tv/videos/123456
+上傳時間：2026/4/5"></textarea>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="parseInput()">解析資料</button>
+      <button class="btn-secondary" onclick="clearAll()">清除全部</button>
+    </div>
+
+    <span class="help-toggle" onclick="toggleHelp()">格式說明</span>
+    <div class="help-content" id="helpContent">
+      <p><strong>智慧辨識模式</strong>：不需要固定標籤，系統會自動根據內容判斷欄位類型：</p>
+      <p>&#8226; <strong>網址</strong>：自動辨識 http/https 連結</p>
+      <p>&#8226; <strong>日期</strong>：自動辨識 2026/4/4、2026-04-04、4月4日 等格式</p>
+      <p>&#8226; <strong>平台</strong>：自動辨識 YouTube、Bilibili、Twitch 等已知平台名稱</p>
+      <p>&#8226; <strong>標題</strong>：剩餘的文字內容自動歸為標題</p>
+      <p style="margin-top:8px;">標籤名稱<strong>完全自由</strong>，寫「影片標題」「直播標題」「視頻名稱」甚至不寫標籤都行。</p>
+      <p>多筆資料之間用<strong>空行</strong>分隔即可。欄位標籤支援全形／半形冒號。</p>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="output-section" id="outputSection">
+    <div class="output-header">
+      <div>
+        <h2>解析結果</h2>
+        <span class="record-count" id="recordCount"></span>
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn-success" onclick="copyToClipboard()">複製表格到剪貼簿</button>
+        <button class="btn-secondary" onclick="downloadCSV()">下載 CSV</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="resultTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>發布平台</th>
+            <th>影片標題</th>
+            <th>影片網址</th>
+            <th>發布日期</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let parsedRecords = [];
+
+// --- Layer 1: Expanded label-based matching ---
+const FIELD_PATTERNS = [
+  { key: 'platform', patterns: [
+    '發布平台', '發佈平台', '直播平台', '平台', '播放平台', '上傳平台',
+    '上架平台', '頻道平台', '視頻平台', '影片平台',
+  ]},
+  { key: 'title', patterns: [
+    '影片標題', '影片名稱', '直播標題', '直播名稱', '標題', '片名',
+    '視頻標題', '視頻名稱', '節目名稱', '節目標題', '短片標題',
+    '內容標題', '名稱',
+  ]},
+  { key: 'url', patterns: [
+    '影片網址', '影片連結', '直播網址', '直播連結', '網址', '連結',
+    '視頻網址', '視頻連結', '短片網址', '短片連結', '鏈接', '链接',
+    '影片鏈接', '直播鏈接', 'URL', 'Link',
+  ]},
+  { key: 'date', patterns: [
+    '發布日期', '發佈日期', '上傳日期', '上架日期', '直播日期',
+    '日期', '發布時間', '發佈時間', '上傳時間', '時間',
+    '播出日期', '播出時間', '刊登日期',
+  ]},
+];
+
+// --- Layer 2: Content-based smart detection ---
+const URL_REGEX = /https?:\/\/[^\s]+/i;
+const DATE_REGEX = /^(\d{2,4})\s*[\/\-\.年]\s*(\d{1,2})\s*[\/\-\.月]\s*(\d{1,2})\s*[日號]?\s*$/;
+const DATE_LOOSE_REGEX = /\d{2,4}\s*[\/\-\.年]\s*\d{1,2}\s*[\/\-\.月]\s*\d{1,2}/;
+
+const KNOWN_PLATFORMS = [
+  'youtube', 'youtube shorts', 'yt', 'yt shorts',
+  'bilibili', 'b站', 'bili',
+  'twitch',
+  'tiktok', '抖音', 'douyin',
+  'facebook', 'fb', 'facebook gaming',
+  'instagram', 'ig', 'ig reels',
+  'twitter', 'x',
+  'niconico', 'nico',
+  'dailymotion',
+  'vimeo',
+  'kick',
+  '西瓜視頻', '西瓜视频',
+  '快手', 'kuaishou',
+  '小紅書', '小红书', 'xiaohongshu',
+  '微博', 'weibo',
+  'threads',
+  'discord',
+];
+
+const PLATFORM_FROM_URL = [
+  { regex: /youtube\.com\/shorts/i, name: 'YouTube Shorts' },
+  { regex: /youtube\.com|youtu\.be/i, name: 'YouTube' },
+  { regex: /bilibili\.com/i, name: 'Bilibili' },
+  { regex: /twitch\.tv/i, name: 'Twitch' },
+  { regex: /tiktok\.com/i, name: 'TikTok' },
+  { regex: /facebook\.com|fb\.watch/i, name: 'Facebook' },
+  { regex: /instagram\.com/i, name: 'Instagram' },
+  { regex: /twitter\.com|x\.com/i, name: 'Twitter/X' },
+  { regex: /niconico\.jp|nicovideo\.jp/i, name: 'NicoNico' },
+  { regex: /dailymotion\.com/i, name: 'Dailymotion' },
+  { regex: /vimeo\.com/i, name: 'Vimeo' },
+  { regex: /kick\.com/i, name: 'Kick' },
+  { regex: /xiaohongshu\.com|xhslink\.com/i, name: '小紅書' },
+  { regex: /weibo\.com/i, name: '微博' },
+];
+
+function isUrl(text) {
+  return URL_REGEX.test(text);
+}
+
+function isDate(text) {
+  return DATE_REGEX.test(text.trim());
+}
+
+function isPlatform(text) {
+  const lower = text.trim().toLowerCase();
+  return KNOWN_PLATFORMS.some(p => lower === p || lower.includes(p));
+}
+
+function guessPlatformFromUrl(url) {
+  for (const { regex, name } of PLATFORM_FROM_URL) {
+    if (regex.test(url)) return name;
+  }
+  return '';
+}
+
+function detectContentType(value) {
+  const v = value.trim();
+  if (isUrl(v)) return 'url';
+  if (isDate(v)) return 'date';
+  if (isPlatform(v) && v.length < 40) return 'platform';
+  return 'title';
+}
+
+// --- Parsing ---
+function parseInput() {
+  const raw = document.getElementById('inputArea').value.trim();
+  const errorBox = document.getElementById('errorBox');
+  errorBox.classList.remove('visible');
+
+  if (!raw) {
+    showError('請先貼上影片資訊！');
+    return;
+  }
+
+  const blocks = splitBlocks(raw);
+  const records = [];
+  const errors = [];
+
+  blocks.forEach((block, i) => {
+    const record = parseBlock(block);
+    if (record) {
+      if (!record.platform && record.url) {
+        record.platform = guessPlatformFromUrl(record.url);
+      }
+      records.push(record);
+    } else {
+      errors.push(`第 ${i + 1} 筆資料無法解析`);
+    }
+  });
+
+  if (records.length === 0) {
+    showError('無法解析任何資料，請確認格式是否正確。' + (errors.length ? '\n' + errors.join('；') : ''));
+    return;
+  }
+
+  if (errors.length > 0) {
+    showError(`成功解析 ${records.length} 筆，但有 ${errors.length} 筆格式有誤：${errors.join('；')}`);
+  }
+
+  parsedRecords = records;
+  renderTable();
+}
+
+function splitBlocks(text) {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = normalized.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+
+  if (blocks.length <= 1) {
+    const lines = normalized.split('\n').filter(l => l.trim());
+    if (lines.length <= 4) return blocks;
+
+    const structure = lines.map(l => detectLineType(l));
+
+    let startIndices = [];
+    for (let i = 0; i < structure.length; i++) {
+      if (i === 0) { startIndices.push(i); continue; }
+      if (structure[i].labelKey === structure[0].labelKey && structure[0].labelKey) {
+        startIndices.push(i);
+      } else if (structure[i].contentType === structure[0].contentType
+                 && structure[0].contentType === 'platform'
+                 && !structure[i].labelKey) {
+        startIndices.push(i);
+      }
+    }
+
+    if (startIndices.length <= 1) {
+      const urlIndices = [];
+      for (let i = 0; i < structure.length; i++) {
+        if (structure[i].contentType === 'url') urlIndices.push(i);
+      }
+      if (urlIndices.length > 1) {
+        const gap = urlIndices[1] - urlIndices[0];
+        if (gap >= 2 && lines.length >= gap * 2) {
+          startIndices = [];
+          for (let i = urlIndices[0] - (urlIndices[0] % gap || gap); i < lines.length; i += gap) {
+            if (i >= 0) startIndices.push(i);
+          }
+          if (startIndices[0] !== 0) startIndices.unshift(0);
+        }
+      }
+    }
+
+    if (startIndices.length > 1) {
+      const result = [];
+      for (let i = 0; i < startIndices.length; i++) {
+        const end = i + 1 < startIndices.length ? startIndices[i + 1] : lines.length;
+        result.push(lines.slice(startIndices[i], end).join('\n'));
+      }
+      return result;
+    }
+  }
+
+  return blocks;
+}
+
+function detectLineType(line) {
+  const labelMatch = matchFieldKeyExpanded(line);
+  const value = extractValue(line);
+  return {
+    labelKey: labelMatch,
+    contentType: detectContentType(value),
+  };
+}
+
+function matchFieldKeyExpanded(line) {
+  for (const field of FIELD_PATTERNS) {
+    for (const p of field.patterns) {
+      const regex = new RegExp(`^\\s*${escRegex(p)}\\s*[：:]`, 'i');
+      if (regex.test(line)) return field.key;
+    }
+  }
+  return null;
+}
+
+function extractValue(line) {
+  const m = line.match(/^[^：:]*[：:]\s*(.+)/);
+  return m ? m[1].trim() : line.trim();
+}
+
+function escRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseBlock(block) {
+  const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+  const record = { platform: '', title: '', url: '', date: '' };
+
+  // Layer 1: Try expanded label matching
+  let labelMatched = 0;
+  const usedLines = new Set();
+
+  for (let i = 0; i < lines.length; i++) {
+    const key = matchFieldKeyExpanded(lines[i]);
+    if (key && !record[key]) {
+      record[key] = extractValue(lines[i]);
+      usedLines.add(i);
+      labelMatched++;
+    }
+  }
+
+  // Layer 2: For any remaining empty fields, try content detection on unmatched lines
+  const remaining = lines.filter((_, i) => !usedLines.has(i));
+
+  for (const line of remaining) {
+    const value = extractValue(line);
+    const type = detectContentType(value);
+
+    if (type === 'url' && !record.url) {
+      record.url = value;
+    } else if (type === 'date' && !record.date) {
+      record.date = value;
+    } else if (type === 'platform' && !record.platform) {
+      record.platform = value;
+    } else if (type === 'title' && !record.title) {
+      record.title = value;
+    }
+  }
+
+  // Layer 2.5: Even for label-matched lines, cross-verify with content detection
+  // e.g., someone writes "直播標題：https://..." — the label says title but content is URL
+  for (const key of ['platform', 'title', 'url', 'date']) {
+    if (!record[key]) continue;
+    const actualType = detectContentType(record[key]);
+    if (key !== actualType && !record[actualType] && actualType !== 'title') {
+      record[actualType] = record[key];
+      record[key] = '';
+    }
+  }
+
+  const filled = [record.platform, record.title, record.url, record.date].filter(Boolean).length;
+  return filled >= 1 ? record : null;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  parsedRecords.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${esc(r.platform)}</td>
+      <td>${esc(r.title)}</td>
+      <td class="url-cell">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>` : ''}</td>
+      <td>${esc(r.date)}</td>
+      <td><button class="delete-btn" title="刪除此筆" onclick="deleteRow(${i})">&#x2715;</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('recordCount').textContent = `共 ${parsedRecords.length} 筆資料`;
+  document.getElementById('outputSection').classList.add('visible');
+}
+
+function deleteRow(index) {
+  parsedRecords.splice(index, 1);
+  if (parsedRecords.length === 0) {
+    document.getElementById('outputSection').classList.remove('visible');
+  } else {
+    renderTable();
+  }
+}
+
+function copyToClipboard() {
+  if (parsedRecords.length === 0) return;
+
+  const header = '發布平台\t影片標題\t影片網址\t發布日期';
+  const rows = parsedRecords.map(r => `${r.platform}\t${r.title}\t${r.url}\t${r.date}`);
+  const tsv = [header, ...rows].join('\n');
+
+  navigator.clipboard.writeText(tsv).then(() => {
+    showToast('已複製！直接貼到 Google 試算表即可');
+  }).catch(() => {
+    fallbackCopy(tsv);
+  });
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast('已複製！直接貼到 Google 試算表即可');
+}
+
+function downloadCSV() {
+  if (parsedRecords.length === 0) return;
+
+  const BOM = '\uFEFF';
+  const header = '發布平台,影片標題,影片網址,發布日期';
+  const rows = parsedRecords.map(r =>
+    [r.platform, r.title, r.url, r.date].map(v => `"${v.replace(/"/g, '""')}"`).join(',')
+  );
+  const csv = BOM + [header, ...rows].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `影片資料_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV 已下載');
+}
+
+function clearAll() {
+  document.getElementById('inputArea').value = '';
+  document.getElementById('outputSection').classList.remove('visible');
+  document.getElementById('errorBox').classList.remove('visible');
+  parsedRecords = [];
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.classList.add('visible');
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function esc(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function toggleHelp() {
+  document.getElementById('helpContent').classList.toggle('visible');
+}
+
+document.getElementById('inputArea').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    parseInput();
+  }
+});
+</script>
+
+</body>
+</html>
