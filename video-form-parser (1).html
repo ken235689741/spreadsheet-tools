@@ -435,6 +435,12 @@ function isDate(text) {
   return DATE_REGEX.test(text.trim());
 }
 
+function normalizeDate(raw) {
+  const m = raw.trim().match(/(\d{2,4})\s*[\/\-\.年]\s*(\d{1,2})\s*[\/\-\.月]\s*(\d{1,2})/);
+  if (!m) return '';
+  return `${m[1]}/${parseInt(m[2])}/${parseInt(m[3])}`;
+}
+
 function isPlatform(text) {
   const lower = text.trim().toLowerCase();
   return KNOWN_PLATFORMS.some(p => lower === p || lower.includes(p));
@@ -620,6 +626,8 @@ function parseBlock(block) {
       record[key] = '';
     }
   }
+
+  if (record.date) record.date = normalizeDate(record.date);
 
   const filled = [record.platform, record.title, record.url, record.date].filter(Boolean).length;
   return filled >= 1 ? record : null;
