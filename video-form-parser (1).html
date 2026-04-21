@@ -464,11 +464,9 @@ weiwuxian741031"></textarea>
   <div class="tab-panel" id="tab-mycard">
     <div class="input-section">
       <label for="mycardInput">貼上 MyCard 資料（每張卡兩行：卡號 → 密碼）</label>
-      <textarea id="mycardInput" placeholder="範例：
-GGGPAF000411
-8VS7G87F4Y4F
-GGGPAF000412
-8VS7G87F4Y4J"></textarea>
+      <textarea id="mycardInput" placeholder="範例（每行一張卡，序號和密碼中間空格分隔）：
+GGGPAF000411 8VS7G87F4Y4F
+GGGPAF000412 8VS7G87F4Y4J"></textarea>
 
       <div class="btn-row">
         <button class="btn-primary" onclick="parseMyCard()">整理資料</button>
@@ -477,10 +475,9 @@ GGGPAF000412
 
       <span class="help-toggle" onclick="toggleHelp('mycardHelp')">格式說明</span>
       <div class="help-content" id="mycardHelp">
-        <p>每張卡佔<strong>兩行</strong>：</p>
-        <p>&#8226; 第一行：卡號</p>
-        <p>&#8226; 第二行：密碼</p>
-        <p style="margin-top:8px;">連續貼入多張卡，不需要空行分隔。</p>
+        <p>每張卡<strong>一行</strong>，序號和密碼中間用空白隔開：</p>
+        <p><code>GGGPAF000411 8VS7G87F4Y4F</code></p>
+        <p style="margin-top:8px;">支援一般空格、Tab、全形空格，多張卡連續貼入即可。</p>
       </div>
 
       <div class="error-box" id="mycardErrorBox"></div>
@@ -979,56 +976,28 @@ function parseMyCard() {
   }
 
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) {
-    errorBox.textContent = '資料不足，至少需要兩行（序號 + 密碼）。';
+  const records = [];
+  const bad = [];
+
+  lines.forEach((line, i) => {
+    // 支援一般空格、tab、全形空格切割
+    const parts = line.split(/[\s　]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      records.push({ cardNo: parts[0], password: parts[1] });
+    } else {
+      bad.push(i + 1);
+    }
+  });
+
+  if (bad.length > 0) {
+    errorBox.textContent = `注意：第 ${bad.join('、')} 行只有一個值，已略過。`;
+    errorBox.classList.add('visible');
+  }
+
+  if (records.length === 0) {
+    errorBox.textContent = '無法解析，請確認每行格式為「序號 密碼」（中間用空白隔開）。';
     errorBox.classList.add('visible');
     return;
-  }
-
-  // 偵測序號：純字母前綴 + 純數字後綴，且多筆之間數字連續
-  const lineInfo = lines.map((line, idx) => {
-    const m = line.match(/^([A-Za-z]{2,})(\d+)$/);
-    return { line, idx, prefix: m ? m[1].toUpperCase() : null, num: m ? parseInt(m[2]) : null };
-  });
-
-  const prefixGroups = {};
-  lineInfo.forEach(d => {
-    if (d.prefix) {
-      if (!prefixGroups[d.prefix]) prefixGroups[d.prefix] = [];
-      prefixGroups[d.prefix].push(d);
-    }
-  });
-
-  let bestGroup = null;
-  for (const group of Object.values(prefixGroups)) {
-    if (group.length < 2) continue;
-    const sorted = [...group].sort((a, b) => a.num - b.num);
-    const isSeq = sorted.every((d, i) => i === 0 || d.num === sorted[i - 1].num + 1);
-    if (isSeq && (!bestGroup || group.length > bestGroup.length)) {
-      bestGroup = sorted;
-    }
-  }
-
-  let records;
-  if (bestGroup) {
-    const cardSet = new Set(bestGroup.map(d => d.idx));
-    const cards = bestGroup.map(d => d.line);
-    const passwords = lines.filter((_, i) => !cardSet.has(i));
-    if (cards.length !== passwords.length) {
-      errorBox.textContent = `注意：偵測到 ${cards.length} 個序號，但有 ${passwords.length} 組密碼，數量不符。`;
-      errorBox.classList.add('visible');
-    }
-    records = cards.map((card, i) => ({ cardNo: card, password: passwords[i] || '' }));
-  } else {
-    // 備用：逐行交替配對
-    records = [];
-    for (let i = 0; i + 1 < lines.length; i += 2) {
-      records.push({ cardNo: lines[i], password: lines[i + 1] });
-    }
-    if (lines.length % 2 !== 0) {
-      errorBox.textContent = `注意：最後一筆「${lines[lines.length - 1]}」缺少對應的密碼，已略過。`;
-      errorBox.classList.add('visible');
-    }
   }
 
   mycardRecords = records;
