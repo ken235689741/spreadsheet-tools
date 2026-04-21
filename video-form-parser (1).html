@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>影片表單解析器</title>
+<title>試算表工具箱</title>
 <style>
   :root {
     --bg: #1a1a2e;
@@ -280,20 +280,58 @@
   }
   .delete-btn:hover { color: var(--accent); background: rgba(233,69,96,0.15); }
 
+  /* Tab navigation */
+  .tab-nav {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .tab-btn {
+    padding: 10px 22px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 0;
+    font-family: inherit;
+  }
+
+  .tab-btn:hover { color: var(--text); transform: none; background: none; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   @media (max-width: 600px) {
     body { padding: 12px; }
     h1 { font-size: 1.4rem; }
     textarea { min-height: 150px; }
     .btn-row { flex-direction: column; }
     button { width: 100%; }
+    .tab-btn { padding: 8px 14px; font-size: 0.82rem; }
   }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>影片表單解析器</h1>
-  <p class="subtitle">貼上影片資訊，自動解析成表格，一鍵複製到 Google 試算表</p>
+  <h1>試算表工具箱</h1>
+  <p class="subtitle">整理資料，一鍵複製到 Google 試算表</p>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="video" onclick="switchTab(this)">影片表單解析</button>
+    <button class="tab-btn" data-tab="dc" onclick="switchTab(this)">DC 名單整理</button>
+    <button class="tab-btn" data-tab="mycard" onclick="switchTab(this)">MyCard 整理</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-video">
 
   <div class="input-section">
     <label for="inputArea">貼上影片資訊（支援多筆，以空行分隔）</label>
@@ -311,10 +349,10 @@
 
     <div class="btn-row">
       <button class="btn-primary" onclick="parseInput()">解析資料</button>
-      <button class="btn-secondary" onclick="clearAll()">清除全部</button>
+      <button class="btn-secondary" onclick="clearVideo()">清除全部</button>
     </div>
 
-    <span class="help-toggle" onclick="toggleHelp()">格式說明</span>
+    <span class="help-toggle" onclick="toggleHelp('helpContent')">格式說明</span>
     <div class="help-content" id="helpContent">
       <p><strong>智慧辨識模式</strong>：不需要固定標籤，系統會自動根據內容判斷欄位類型：</p>
       <p>&#8226; <strong>網址</strong>：自動辨識 http/https 連結</p>
@@ -355,6 +393,106 @@
       </table>
     </div>
   </div>
+
+  </div><!-- /tab-video -->
+
+  <!-- ===== Tab 2: DC 名單整理 ===== -->
+  <div class="tab-panel" id="tab-dc">
+    <div class="input-section">
+      <label for="dcInput">貼上 DC 名單（每人兩行：顯示名稱 → Discord ID）</label>
+      <textarea id="dcInput" placeholder="範例：
+NetEase-Roy
+roy_better
+青蛙34
+frog._.34_85315
+秋天🍂
+weiwuxian741031"></textarea>
+
+      <div class="btn-row">
+        <button class="btn-primary" onclick="parseDC()">整理名單</button>
+        <button class="btn-secondary" onclick="clearDC()">清除全部</button>
+      </div>
+
+      <span class="help-toggle" onclick="toggleHelp('dcHelp')">格式說明</span>
+      <div class="help-content" id="dcHelp">
+        <p>每人佔<strong>兩行</strong>：</p>
+        <p>&#8226; 第一行：顯示名稱（暱稱，可包含中文、emoji）</p>
+        <p>&#8226; 第二行：Discord ID（英數字帳號）</p>
+        <p style="margin-top:8px;">多人直接連續貼入，不需要空行分隔。</p>
+      </div>
+
+      <div class="error-box" id="dcErrorBox"></div>
+    </div>
+
+    <div class="output-section" id="dcOutputSection">
+      <div class="output-header">
+        <div>
+          <h2>整理結果</h2>
+          <span class="record-count" id="dcRecordCount"></span>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn-success" onclick="copyDC()">複製到試算表</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>#</th><th>顯示名稱</th><th>Discord ID</th><th></th></tr>
+          </thead>
+          <tbody id="dcTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /tab-dc -->
+
+  <!-- ===== Tab 3: MyCard 整理 ===== -->
+  <div class="tab-panel" id="tab-mycard">
+    <div class="input-section">
+      <label for="mycardInput">貼上 MyCard 資料（每張卡兩行：卡號 → 密碼）</label>
+      <textarea id="mycardInput" placeholder="範例：
+GGGPAF000411
+8VS7G87F4Y4F
+GGGPAF000412
+8VS7G87F4Y4J"></textarea>
+
+      <div class="btn-row">
+        <button class="btn-primary" onclick="parseMyCard()">整理資料</button>
+        <button class="btn-secondary" onclick="clearMyCard()">清除全部</button>
+      </div>
+
+      <span class="help-toggle" onclick="toggleHelp('mycardHelp')">格式說明</span>
+      <div class="help-content" id="mycardHelp">
+        <p>每張卡佔<strong>兩行</strong>：</p>
+        <p>&#8226; 第一行：卡號</p>
+        <p>&#8226; 第二行：密碼</p>
+        <p style="margin-top:8px;">連續貼入多張卡，不需要空行分隔。</p>
+      </div>
+
+      <div class="error-box" id="mycardErrorBox"></div>
+    </div>
+
+    <div class="output-section" id="mycardOutputSection">
+      <div class="output-header">
+        <div>
+          <h2>整理結果</h2>
+          <span class="record-count" id="mycardRecordCount"></span>
+        </div>
+        <div class="btn-row" style="margin-top:0">
+          <button class="btn-success" onclick="copyMyCardTable()">複製到試算表</button>
+          <button class="btn-secondary" onclick="copyMyCardFormatted()">複製格式化文字</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>#</th><th>卡號</th><th>密碼</th><th></th></tr>
+          </thead>
+          <tbody id="mycardTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /tab-mycard -->
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -665,28 +803,9 @@ function deleteRow(index) {
 
 function copyToClipboard() {
   if (parsedRecords.length === 0) return;
-
   const header = '發布平台\t影片標題\t影片網址\t發布日期';
   const rows = parsedRecords.map(r => `${r.platform}\t${r.title}\t${r.url}\t${r.date}`);
-  const tsv = [header, ...rows].join('\n');
-
-  navigator.clipboard.writeText(tsv).then(() => {
-    showToast('已複製！直接貼到 Google 試算表即可');
-  }).catch(() => {
-    fallbackCopy(tsv);
-  });
-}
-
-function fallbackCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand('copy');
-  document.body.removeChild(ta);
-  showToast('已複製！直接貼到 Google 試算表即可');
+  copyText([header, ...rows].join('\n'), '已複製！直接貼到 Google 試算表即可');
 }
 
 function downloadCSV() {
@@ -709,7 +828,7 @@ function downloadCSV() {
   showToast('CSV 已下載');
 }
 
-function clearAll() {
+function clearVideo() {
   document.getElementById('inputArea').value = '';
   document.getElementById('outputSection').classList.remove('visible');
   document.getElementById('errorBox').classList.remove('visible');
@@ -731,19 +850,203 @@ function showToast(msg) {
 
 function esc(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = str || '';
   return div.innerHTML;
 }
 
-function toggleHelp() {
-  document.getElementById('helpContent').classList.toggle('visible');
+function toggleHelp(id) {
+  document.getElementById(id).classList.toggle('visible');
 }
 
-document.getElementById('inputArea').addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault();
-    parseInput();
+function copyText(text, msg) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(msg || '已複製！');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast(msg || '已複製！');
+  });
+}
+
+// ===== 分頁切換 =====
+function switchTab(btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ===== Tab 2: DC 名單整理 =====
+let dcRecords = [];
+
+function parseDC() {
+  const raw = document.getElementById('dcInput').value.trim();
+  const errorBox = document.getElementById('dcErrorBox');
+  errorBox.classList.remove('visible');
+
+  if (!raw) {
+    errorBox.textContent = '請先貼上名單資料！';
+    errorBox.classList.add('visible');
+    return;
   }
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    errorBox.textContent = '資料不足，至少需要兩行（顯示名稱 + Discord ID）。';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const records = [];
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    records.push({ name: lines[i], id: lines[i + 1] });
+  }
+
+  if (lines.length % 2 !== 0) {
+    errorBox.textContent = `注意：最後一筆「${lines[lines.length - 1]}」缺少對應的 Discord ID，已略過。`;
+    errorBox.classList.add('visible');
+  }
+
+  dcRecords = records;
+  renderDCTable();
+}
+
+function renderDCTable() {
+  const tbody = document.getElementById('dcTableBody');
+  tbody.innerHTML = '';
+  dcRecords.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${esc(r.name)}</td>
+      <td>${esc(r.id)}</td>
+      <td><button class="delete-btn" title="刪除此筆" onclick="deleteDCRow(${i})">&#x2715;</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('dcRecordCount').textContent = `共 ${dcRecords.length} 筆`;
+  document.getElementById('dcOutputSection').classList.add('visible');
+}
+
+function deleteDCRow(index) {
+  dcRecords.splice(index, 1);
+  if (dcRecords.length === 0) {
+    document.getElementById('dcOutputSection').classList.remove('visible');
+  } else {
+    renderDCTable();
+  }
+}
+
+function copyDC() {
+  if (dcRecords.length === 0) return;
+  const header = '顯示名稱\tDiscord ID';
+  const rows = dcRecords.map(r => `${r.name}\t${r.id}`);
+  copyText([header, ...rows].join('\n'), '已複製！直接貼到 Google 試算表即可');
+}
+
+function clearDC() {
+  document.getElementById('dcInput').value = '';
+  document.getElementById('dcOutputSection').classList.remove('visible');
+  document.getElementById('dcErrorBox').classList.remove('visible');
+  dcRecords = [];
+}
+
+// ===== Tab 3: MyCard 整理 =====
+let mycardRecords = [];
+
+function parseMyCard() {
+  const raw = document.getElementById('mycardInput').value.trim();
+  const errorBox = document.getElementById('mycardErrorBox');
+  errorBox.classList.remove('visible');
+
+  if (!raw) {
+    errorBox.textContent = '請先貼上 MyCard 資料！';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    errorBox.textContent = '資料不足，至少需要兩行（卡號 + 密碼）。';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const records = [];
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    records.push({ cardNo: lines[i], password: lines[i + 1] });
+  }
+
+  if (lines.length % 2 !== 0) {
+    errorBox.textContent = `注意：最後一筆「${lines[lines.length - 1]}」缺少對應的密碼，已略過。`;
+    errorBox.classList.add('visible');
+  }
+
+  mycardRecords = records;
+  renderMyCardTable();
+}
+
+function renderMyCardTable() {
+  const tbody = document.getElementById('mycardTableBody');
+  tbody.innerHTML = '';
+  mycardRecords.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${esc(r.cardNo)}</td>
+      <td>${esc(r.password)}</td>
+      <td><button class="delete-btn" title="刪除此筆" onclick="deleteMyCardRow(${i})">&#x2715;</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('mycardRecordCount').textContent = `共 ${mycardRecords.length} 張`;
+  document.getElementById('mycardOutputSection').classList.add('visible');
+}
+
+function deleteMyCardRow(index) {
+  mycardRecords.splice(index, 1);
+  if (mycardRecords.length === 0) {
+    document.getElementById('mycardOutputSection').classList.remove('visible');
+  } else {
+    renderMyCardTable();
+  }
+}
+
+function copyMyCardTable() {
+  if (mycardRecords.length === 0) return;
+  const header = '卡號\t密碼';
+  const rows = mycardRecords.map(r => `${r.cardNo}\t${r.password}`);
+  copyText([header, ...rows].join('\n'), '已複製！直接貼到 Google 試算表即可');
+}
+
+function copyMyCardFormatted() {
+  if (mycardRecords.length === 0) return;
+  const lines = mycardRecords.map(r => `卡號：${r.cardNo}      密碼：${r.password}`);
+  copyText(lines.join('\n'), '已複製格式化文字！');
+}
+
+function clearMyCard() {
+  document.getElementById('mycardInput').value = '';
+  document.getElementById('mycardOutputSection').classList.remove('visible');
+  document.getElementById('mycardErrorBox').classList.remove('visible');
+  mycardRecords = [];
+}
+
+// ===== 鍵盤快捷鍵 =====
+document.getElementById('inputArea').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); parseInput(); }
+});
+document.getElementById('dcInput').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); parseDC(); }
+});
+document.getElementById('mycardInput').addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); parseMyCard(); }
 });
 </script>
 
