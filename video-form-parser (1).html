@@ -268,6 +268,21 @@
   .badge-smart { background: rgba(255,154,118,0.2); color: #ff9a76; }
   .badge-infer { background: rgba(116,185,255,0.2); color: #74b9ff; }
 
+  .text-output {
+    width: 100%;
+    min-height: 120px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 0.9rem;
+    font-family: 'Consolas', 'Microsoft JhengHei', monospace;
+    resize: vertical;
+    line-height: 1.8;
+    margin-top: 4px;
+  }
+
   .delete-btn {
     background: none;
     border: none;
@@ -478,18 +493,10 @@ GGGPAF000412
           <span class="record-count" id="mycardRecordCount"></span>
         </div>
         <div class="btn-row" style="margin-top:0">
-          <button class="btn-success" onclick="copyMyCardTable()">複製到試算表</button>
-          <button class="btn-secondary" onclick="copyMyCardFormatted()">複製格式化文字</button>
+          <button class="btn-success" onclick="copyMyCardResult()">複製全部</button>
         </div>
       </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr><th>#</th><th>卡號</th><th>密碼</th><th></th></tr>
-          </thead>
-          <tbody id="mycardTableBody"></tbody>
-        </table>
-      </div>
+      <textarea id="mycardOutput" class="text-output" readonly></textarea>
     </div>
   </div><!-- /tab-mycard -->
 
@@ -973,66 +980,76 @@ function parseMyCard() {
 
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length < 2) {
-    errorBox.textContent = '資料不足，至少需要兩行（卡號 + 密碼）。';
+    errorBox.textContent = '資料不足，至少需要兩行（序號 + 密碼）。';
     errorBox.classList.add('visible');
     return;
   }
 
-  const records = [];
-  for (let i = 0; i + 1 < lines.length; i += 2) {
-    records.push({ cardNo: lines[i], password: lines[i + 1] });
+  // 偵測序號：純字母前綴 + 純數字後綴，且多筆之間數字連續
+  const lineInfo = lines.map((line, idx) => {
+    const m = line.match(/^([A-Za-z]{2,})(\d+)$/);
+    return { line, idx, prefix: m ? m[1].toUpperCase() : null, num: m ? parseInt(m[2]) : null };
+  });
+
+  const prefixGroups = {};
+  lineInfo.forEach(d => {
+    if (d.prefix) {
+      if (!prefixGroups[d.prefix]) prefixGroups[d.prefix] = [];
+      prefixGroups[d.prefix].push(d);
+    }
+  });
+
+  let bestGroup = null;
+  for (const group of Object.values(prefixGroups)) {
+    if (group.length < 2) continue;
+    const sorted = [...group].sort((a, b) => a.num - b.num);
+    const isSeq = sorted.every((d, i) => i === 0 || d.num === sorted[i - 1].num + 1);
+    if (isSeq && (!bestGroup || group.length > bestGroup.length)) {
+      bestGroup = sorted;
+    }
   }
 
-  if (lines.length % 2 !== 0) {
-    errorBox.textContent = `注意：最後一筆「${lines[lines.length - 1]}」缺少對應的密碼，已略過。`;
-    errorBox.classList.add('visible');
+  let records;
+  if (bestGroup) {
+    const cardSet = new Set(bestGroup.map(d => d.idx));
+    const cards = bestGroup.map(d => d.line);
+    const passwords = lines.filter((_, i) => !cardSet.has(i));
+    if (cards.length !== passwords.length) {
+      errorBox.textContent = `注意：偵測到 ${cards.length} 個序號，但有 ${passwords.length} 組密碼，數量不符。`;
+      errorBox.classList.add('visible');
+    }
+    records = cards.map((card, i) => ({ cardNo: card, password: passwords[i] || '' }));
+  } else {
+    // 備用：逐行交替配對
+    records = [];
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      records.push({ cardNo: lines[i], password: lines[i + 1] });
+    }
+    if (lines.length % 2 !== 0) {
+      errorBox.textContent = `注意：最後一筆「${lines[lines.length - 1]}」缺少對應的密碼，已略過。`;
+      errorBox.classList.add('visible');
+    }
   }
 
   mycardRecords = records;
-  renderMyCardTable();
+  renderMyCardOutput();
 }
 
-function renderMyCardTable() {
-  const tbody = document.getElementById('mycardTableBody');
-  tbody.innerHTML = '';
-  mycardRecords.forEach((r, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td>${esc(r.cardNo)}</td>
-      <td>${esc(r.password)}</td>
-      <td><button class="delete-btn" title="刪除此筆" onclick="deleteMyCardRow(${i})">&#x2715;</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
+function renderMyCardOutput() {
+  const formatted = mycardRecords.map(r => `序號：${r.cardNo}   密碼：${r.password}`).join('\n');
+  document.getElementById('mycardOutput').value = formatted;
   document.getElementById('mycardRecordCount').textContent = `共 ${mycardRecords.length} 張`;
   document.getElementById('mycardOutputSection').classList.add('visible');
 }
 
-function deleteMyCardRow(index) {
-  mycardRecords.splice(index, 1);
-  if (mycardRecords.length === 0) {
-    document.getElementById('mycardOutputSection').classList.remove('visible');
-  } else {
-    renderMyCardTable();
-  }
-}
-
-function copyMyCardTable() {
+function copyMyCardResult() {
   if (mycardRecords.length === 0) return;
-  const header = '卡號\t密碼';
-  const rows = mycardRecords.map(r => `${r.cardNo}\t${r.password}`);
-  copyText([header, ...rows].join('\n'), '已複製！直接貼到 Google 試算表即可');
-}
-
-function copyMyCardFormatted() {
-  if (mycardRecords.length === 0) return;
-  const lines = mycardRecords.map(r => `卡號：${r.cardNo}      密碼：${r.password}`);
-  copyText(lines.join('\n'), '已複製格式化文字！');
+  copyText(document.getElementById('mycardOutput').value, '已複製！');
 }
 
 function clearMyCard() {
   document.getElementById('mycardInput').value = '';
+  document.getElementById('mycardOutput').value = '';
   document.getElementById('mycardOutputSection').classList.remove('visible');
   document.getElementById('mycardErrorBox').classList.remove('visible');
   mycardRecords = [];
